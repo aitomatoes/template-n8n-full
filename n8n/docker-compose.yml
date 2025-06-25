@@ -1,0 +1,90 @@
+# n8n/docker-compose.yml
+# Versão corrigida, removendo a dependência 'depends_on' de um serviço externo.
+
+version: '3.8'
+
+x-n8n-environment: &n8n-environment
+  # --- Configuração Geral do n8n ---
+  NODE_FUNCTION_ALLOW_EXTERNAL: '*'
+  N8N_LOG_LEVEL: debug
+  EXECUTIONS_MODE: queue
+  QUEUE_HEALTH_CHECK_ACTIVE: true
+  N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+  WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+  GENERIC_TIMEZONE: ${N8N_GENERIC_TIMEZONE}
+  N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: ${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS:-true}
+
+  # --- Conexão com o Banco de Dados Dedicado (PREFIXADO) ---
+  DB_TYPE: postgresdb
+  DB_POSTGRESDB_HOST: n8n-postgres
+  DB_POSTGRESDB_PORT: 5432
+  DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB}
+  DB_POSTGRESDB_USER: ${N8N_POSTGRES_USER}
+  DB_POSTGRESDB_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+
+  # --- Conexão com o Serviço REDIS COMPARTILHADO ---
+  QUEUE_BULL_REDIS_HOST: ${REDIS_HOST}
+  QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+  QUEUE_BULL_REDIS_DB: ${REDIS_DB_N8N}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: "n8n-postgres"
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${N8N_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${N8N_POSTGRES_DB}
+    volumes:
+      - n8n_db_data:/var/lib/postgresql/data
+    networks:
+      - coral-home-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${N8N_POSTGRES_USER}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: "n8n-main"
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_app_data:/home/node/.n8n
+    networks:
+      - coral-home-net
+    environment: *n8n-environment
+    depends_on:
+      # A dependência AGORA está correta, apontando apenas para serviços neste arquivo.
+      postgres:
+        condition: service_healthy
+
+  n8n-worker:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: "n8n-worker"
+    restart: always
+    volumes:
+      - n8n_app_data:/home/node/.n8n
+    networks:
+      - coral-home-net
+    environment:
+      <<: *n8n-environment
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
+    command: worker
+    depends_on:
+      # A dependência AGORA está correta.
+      postgres:
+        condition: service_healthy
+
+volumes:
+  n8n_db_data:
+  n8n_app_data:
+
+networks:
+  coral-home-net:
+    external: true

@@ -1,0 +1,74 @@
+services:
+  api:
+    container_name: ${EVO_API_CONTAINER_NAME:-evolution_api}
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "${EVO_API_HOST_PORT:-8080}:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-net
+      - coral-home-net
+    expose:
+      - 8080
+    environment:
+      - DATABASE_PROVIDER=${EVO_DATABASE_PROVIDER}
+      - AUTHENTICATION_API_KEY=${EVO_AUTHENTICATION_API_KEY}
+      - API_CONTAINER_NAME=${EVO_API_CONTAINER_NAME}
+      - API_HOST_PORT=${EVO_API_HOST_PORT}
+      - POSTGRES_CONTAINER_NAME=${EVO_POSTGRES_CONTAINER_NAME}
+      - POSTGRES_HOST_PORT=${EVO_POSTGRES_HOST_PORT}
+      - POSTGRES_USER=${EVO_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${EVO_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${EVO_POSTGRES_DB}
+      - POSTGRES_MAX_CONNECTIONS=${EVO_POSTGRES_MAX_CONNECTIONS}
+      - POSTGRES_HOST_AUTH_METHOD=${EVO_POSTGRES_HOST_AUTH_METHOD}
+      - CACHE_REDIS_ENABLED=${EVO_CACHE_REDIS_ENABLED}
+      - CACHE_REDIS_TTL=${EVO_CACHE_REDIS_TTL}
+      - CACHE_REDIS_PREFIX_KEY=${EVO_CACHE_REDIS_PREFIX_KEY}
+      - CACHE_REDIS_SAVE_INSTANCES=${EVO_CACHE_REDIS_SAVE_INSTANCES}
+      - CACHE_LOCAL_ENABLED=${EVO_CACHE_LOCAL_ENABLED}
+      - CACHE_REDIS_URI=${EVO_CACHE_REDIS_URI}
+      - DATABASE_CONNECTION_URI=${EVO_DATABASE_CONNECTION_URI}
+
+  postgres:
+    container_name: ${EVO_POSTGRES_CONTAINER_NAME:-evolution-postgres}
+    image: postgres:15
+    command:
+      [
+        "postgres",
+        "-c", "max_connections=${EVO_POSTGRES_MAX_CONNECTIONS:-1000}",
+        "-c", "listen_addresses=*"
+      ]
+    restart: always
+    ports:
+      - "${EVO_POSTGRES_HOST_PORT:-5434}:5432"
+    environment:
+      - POSTGRES_USER=${EVO_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${EVO_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${EVO_POSTGRES_DB}
+      - POSTGRES_HOST_AUTH_METHOD=${EVO_POSTGRES_HOST_AUTH_METHOD:-trust}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      evolution-net:
+        aliases:
+          - evolution-db
+    expose:
+      - 5432
+
+volumes:
+  evolution_instances:
+  evolution_redis:
+  postgres_data:
+
+
+networks:
+  evolution-net:
+    name: evolution-net
+    driver: bridge
+  coral-home-net:
+    external: true
