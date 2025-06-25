@@ -1,5 +1,12 @@
 .idea
 **/.DS*
-**/volumes
+# Ignora dados de runtime
+supabase/volumes/db/data/
+supabase/volumes/storage/stub/
+
+# Mantém arquivos de config
+!supabase/volumes/logs/vector.yml
+!supabase/volumes/api/kong.yml
+!supabase/volumes/db/init/*.sql
 .env
 **/.env
